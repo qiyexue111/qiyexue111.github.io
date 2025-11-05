@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>表白互动页面</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#FF3B30',
+            secondary: '#007AFF',
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .btn-container {
+        display: flex;
+        justify-content: center;
+        gap: 4rem;
+        transition: all 0.5s ease;
+      }
+      .emoji-container {
+        transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        transform-origin: center;
+      }
+      .emoji-bounce {
+        animation: emojiBounce 0.6s ease infinite alternate;
+      }
+      @keyframes emojiBounce {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(-10px); }
+      }
+      .emoji-spin {
+        animation: emojiSpin 0.8s ease-out;
+      }
+      @keyframes emojiSpin {
+        0% { transform: rotate(0deg) scale(1); }
+        50% { transform: rotate(15deg) scale(1.1); }
+        100% { transform: rotate(0deg) scale(1); }
+      }
+      .btn {
+        transition: all 0.3s ease;
+        position: relative;
+        z-index: 10;
+        backdrop-filter: blur(4px);
+        transform-origin: center;
+        overflow: hidden;
+      }
+      .btn::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: rgba(255,255,255,0.2);
+        transition: all 0.3s ease;
+        transform: skewX(-20deg);
+      }
+      .btn:hover::after {
+        left: 100%;
+      }
+      .btn-pulse {
+        animation: btnPulse 2s infinite;
+      }
+      @keyframes btnPulse {
+        0% { box-shadow: 0 0 0 0 rgba(255,59,48,0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(255,59,48,0); }
+        100% { box-shadow: 0 0 0 0 rgba(255,59,48,0); }
+      }
+      .modal {
+        animation: popup 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      @keyframes popup {
+        0% { transform: scale(0.8); opacity: 0; }
+        70% { transform: scale(1.1); }
+        100% { transform: scale(1); opacity: 1; }
+      }
+      .bg-blur {
+        backdrop-filter: blur(8px);
+      }
+      .bg-parallax {
+        animation: bgParallax 20s ease infinite alternate;
+      }
+      @keyframes bgParallax {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 100% 50%; }
+      }
+      .shuffle-animation {
+        animation: shuffle 0.5s ease;
+      }
+      @keyframes shuffle {
+        0% { transform: translateX(0); }
+        50% { transform: translateX(50px) scale(1.1); }
+        100% { transform: translateX(0); }
+      }
+      .dodge-animation {
+        animation: dodge 0.8s infinite alternate;
+      }
+      @keyframes dodge {
+        0% { transform: translate(0, 0) rotate(0deg); }
+        25% { transform: translate(10px, -5px) rotate(2deg); }
+        50% { transform: translate(-5px, 10px) rotate(-2deg); }
+        75% { transform: translate(5px, -10px) rotate(1deg); }
+        100% { transform: translate(-10px, 5px) rotate(-1deg); }
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      }
+      .text-float {
+        animation: textFloat 3s ease infinite alternate;
+      }
+      @keyframes textFloat {
+        0% { transform: translateY(0); }
+        100% { transform: translateY(-8px); }
+      }
+      .heart {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background-color: #ff3b30;
+        transform: rotate(45deg);
+        animation: heartFloat 3s ease-in-out forwards;
+        opacity: 0;
+        z-index: 5;
+      }
+      .heart::before, .heart::after {
+        content: '';
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background-color: #ff3b30;
+        border-radius: 50%;
+      }
+      .heart::before {
+        top: -10px;
+        left: 0;
+      }
+      .heart::after {
+        top: 0;
+        left: -10px;
+      }
+      @keyframes heartFloat {
+        0% { transform: rotate(45deg) translateY(0) scale(0.3); opacity: 1; }
+        100% { transform: rotate(45deg) translateY(-100px) scale(1); opacity: 0; }
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden relative">
+  <!-- 背景图片容器 -->
+  <div id="background" class="fixed inset-0 z-0 bg-cover bg-center bg-parallax"></div>
+  
+  <!-- 半透明遮罩 -->
+  <div class="fixed inset-0 z-10 bg-black/20"></div>
+  
+  <!-- 主内容 -->
+  <div class="relative z-20 w-full max-w-md flex flex-col items-center">
+    <!-- 表情包区域 -->
+    <div class="emoji-container mb-10 emoji-bounce">
+      <div id="emoji-display" class="w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden border-4 border-white/30 shadow-xl">
+        <img src="" alt="动态表情包" class="w-full h-full object-cover">
+      </div>
+      <input type="file" id="emoji-upload" accept="image/*" class="hidden">
+      <label for="emoji-upload" class="absolute top-4 right-4 bg-white/30 p-2 rounded-full shadow-md hover:bg-white/50 transition-colors cursor-pointer hover:scale-110">
+        <i class="fa fa-pencil text-white text-shadow"></i>
+      </label>
+    </div>
+    
+    <!-- 问题文本 -->
+    <div class="text-center mb-12">
+      <h2 class="text-[clamp(1.8rem,6vw,2.5rem)] font-bold text-white text-shadow text-float">可以成为我的恋人吗？</h2>
+    </div>
+    
+    <!-- 按钮区域 -->
+    <div id="btn-container" class="btn-container w-full">
+      <button id="btn-yes" class="btn bg-primary/90 text-white px-8 py-4 rounded-full text-lg font-semibold shadow-lg hover:bg-primary active:scale-95 btn-pulse">
+        可以
+      </button>
+      <button id="btn-no" class="btn bg-secondary/90 text-white px-8 py-4 rounded-full text-lg font-semibold shadow-lg hover:bg-secondary active:scale-95">
+        不要
+      </button>
+    </div>
+  </div>
+  
+  <!-- 背景图片上传按钮 -->
+  <button id="bg-upload-btn" class="fixed bottom-4 left-4 z-20 bg-white/30 p-3 rounded-full shadow-md hover:bg-white/50 transition-colors hover:scale-110">
+    <i class="fa fa-image text-white text-shadow"></i>
+  </button>
+  <input type="file" id="bg-upload" accept="image/*" class="hidden">
+  
+  <!-- 成功弹窗 -->
+  <div id="success-modal" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+    <div class="absolute inset-0 bg-black/60 bg-blur"></div>
+    <div class="modal relative bg-white/95 rounded-3xl p-8 md:p-12 max-w-md w-full text-center shadow-2xl">
+      <h2 class="text-4xl md:text-5xl font-bold text-primary mb-6">喜欢你！</h2>
+      <p class="text-gray-600 text-lg mb-8">我会一直珍惜你的！</p>
+      <button id="close-modal" class="bg-primary text-white px-8 py-3 rounded-full text-lg font-semibold shadow-lg hover:bg-primary/90 active:scale-95 transition-all">
+        确定
+      </button>
+    </div>
+  </div>
+  
+  <script>
+    // 本地文件路径设置
+    const customSettings = {
+      backgroundImage: "D:/桌面/好玩代码/网页/back.jpg",
+      emojiImages: [
+        "D:/桌面/好玩代码/网页/1.gif",
+        "D:/桌面/好玩代码/网页/2.gif",
+        "D:/桌面/好玩代码/网页/3.gif",
+        "D:/桌面/好玩代码/网页/4.gif",
+        "D:/桌面/好玩代码/网页/5.gif",
+        "D:/桌面/好玩代码/网页/6.gif"
+      ]
+    };
+    
+    // 爱心数量控制变量
+    let heartCount = 15; // 初始爱心数量
+    
+    const state = {
+      noClickCount: 0,
+      swapped: false,
+      noTexts: [
+        "不要",
+        "不要",
+        "？你认真的吗",
+        "要不再想想",
+        "不许选这个！",
+        "我会很伤心...",
+        "追不上我吧"
+      ],
+      emojiImages: customSettings.emojiImages
+    };
+    
+    // DOM元素
+    const btnYes = document.getElementById('btn-yes');
+    const btnNo = document.getElementById('btn-no');
+    const btnContainer = document.getElementById('btn-container');
+    const emojiDisplay = document.getElementById('emoji-display').querySelector('img');
+    const emojiContainer = document.querySelector('.emoji-container');
+    const successModal = document.getElementById('success-modal');
+    const closeModal = document.getElementById('close-modal');
+    const bgUpload = document.getElementById('bg-upload');
+    const bgUploadBtn = document.getElementById('bg-upload-btn');
+    const background = document.getElementById('background');
+    const emojiUpload = document.getElementById('emoji-upload');
+    const body = document.body;
+    
+    // 初始化
+    function init() {
+      background.style.backgroundImage = `url('${customSettings.backgroundImage}')`;
+      emojiDisplay.src = state.emojiImages[0];
+      
+      // 初始创建爱心
+      createHearts(heartCount);
+      
+      // 表情包点击互动
+      emojiContainer.addEventListener('click', () => {
+        emojiContainer.classList.add('emoji-spin');
+        setTimeout(() => {
+          emojiContainer.classList.remove('emoji-spin');
+        }, 800);
+      });
+      
+      // 定时补充少量爱心，保持初始氛围
+      setInterval(() => {
+        if (state.noClickCount === 0 && document.querySelectorAll('.heart').length < 5) {
+          createHearts(2);
+        }
+      }, 3000);
+    }
+    
+    // 创建爱心粒子效果
+    function createHearts(count = 5) {
+      for (let i = 0; i < count; i++) {
+        const heart = document.createElement('div');
+        heart.classList.add('heart');
+        
+        // 随机位置和大小
+        const size = Math.random() * 15 + 10;
+        const left = Math.random() * 100;
+        const delay = Math.random() * 2;
+        
+        heart.style.left = `${left}%`;
+        heart.style.width = `${size}px`;
+        heart.style.height = `${size}px`;
+        heart.style.animationDelay = `${delay}s`;
+        
+        // 随点击"不要"次数增加，爱心逐渐变淡
+        const opacity = Math.max(0.3, 1 - state.noClickCount * 0.15);
+        heart.style.opacity = opacity;
+        
+        body.appendChild(heart);
+        
+        // 动画结束后移除元素
+        setTimeout(() => {
+          heart.remove();
+        }, 3000 + delay * 1000);
+      }
+    }
+    
+    // 交换按钮位置
+    function swapButtons() {
+      state.swapped = !state.swapped;
+      btnContainer.classList.add('shuffle-animation');
+      
+      if (state.swapped) {
+        btnContainer.appendChild(btnYes);
+        btnContainer.appendChild(btnNo);
+      } else {
+        btnContainer.appendChild(btnNo);
+        btnContainer.appendChild(btnYes);
+      }
+      
+      setTimeout(() => {
+        btnContainer.classList.remove('shuffle-animation');
+      }, 500);
+    }
+    
+    // 按钮大小变量
+    let yesScale = 1;
+    let noScale = 1;
+    
+    // "可以"按钮点击事件（大量爱心）
+    btnYes.addEventListener('click', () => {
+      createHearts(30); // 点击"可以"出现大量爱心
+      successModal.classList.remove('hidden');
+    });
+    
+    // "不要"按钮点击事件（爱心减少）
+    btnNo.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.noClickCount++;
+      
+      // 表情包旋转动画
+      emojiContainer.classList.add('emoji-spin');
+      setTimeout(() => {
+        emojiContainer.classList.remove('emoji-spin');
+      }, 800);
+      
+      // 每次点击"不要"，爱心数量减少
+      heartCount = Math.max(0, heartCount - 3);
+      createHearts(Math.max(0, heartCount / 3)); // 生成减少后的爱心数量
+      
+      // 第一次点击：交换位置
+      if (state.noClickCount === 1) {
+        swapButtons();
+        return;
+      }
+      
+      // 第二次点击：交换回来
+      if (state.noClickCount === 2) {
+        swapButtons();
+        btnNo.textContent = state.noTexts[1];
+        return;
+      }
+      
+      // 第三次及以后点击
+      if (state.noClickCount <= state.noTexts.length) {
+        btnNo.textContent = state.noTexts[state.noClickCount - 1];
+        
+        // 按钮缩放
+        noScale *= 0.85;
+        yesScale *= 1.15;
+        
+        btnNo.style.transform = `scale(${noScale})`;
+        btnYes.style.transform = `scale(${yesScale})`;
+        
+        // 更新表情包
+        const emojiIndex = Math.min(state.noClickCount - 2, state.emojiImages.length - 1);
+        emojiDisplay.src = state.emojiImages[emojiIndex];
+      }
+      
+      // 最后阶段：按钮乱窜
+      if (state.noClickCount >= state.noTexts.length) {
+        btnNo.textContent = state.noTexts[state.noTexts.length - 1];
+        btnNo.classList.add('dodge-animation');
+        moveNoButtonContinuously();
+      }
+    });
+    
+    // 按钮持续移动
+    function moveNoButtonContinuously() {
+      if (state.noClickCount < state.noTexts.length) return;
+      
+      const maxX = window.innerWidth - btnNo.offsetWidth - 40;
+      const maxY = window.innerHeight - btnNo.offsetHeight - 100;
+      
+      const randomX = Math.floor(Math.random() * maxX);
+      const randomY = Math.floor(Math.random() * maxY);
+      
+      btnNo.style.position = 'fixed';
+      btnNo.style.left = `${randomX}px`;
+      btnNo.style.top = `${randomY}px`;
+      
+      setTimeout(moveNoButtonContinuously, 500);
+    }
+    
+    // 关闭弹窗
+    closeModal.addEventListener('click', () => {
+      successModal.classList.add('hidden');
+    });
+    
+    // 背景图片上传
+    bgUploadBtn.addEventListener('click', () => {
+      bgUpload.click();
+    });
+    
+    bgUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          background.style.backgroundImage = `url('${event.target.result}')`;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    // 表情包上传
+    emojiUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const currentIndex = Math.max(0, state.noClickCount - 2);
+          state.emojiImages[currentIndex] = event.target.result;
+          emojiDisplay.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+    
+    // 点击弹窗背景不关闭
+    successModal.addEventListener('click', (e) => {
+      if (e.target === successModal) {
+        e.stopPropagation();
+      }
+    });
+    
+    // 防止页面滚动
+    document.body.style.overflow = 'hidden';
+    
+    // 初始化页面
+    init();
+  </script>
+</body>
+</html>
