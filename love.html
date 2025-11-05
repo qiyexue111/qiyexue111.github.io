@@ -153,6 +153,28 @@
         0% { transform: rotate(45deg) translateY(0) scale(0.3); opacity: 1; }
         100% { transform: rotate(45deg) translateY(-100px) scale(1); opacity: 0; }
       }
+      /* 音乐控制按钮 */
+      .music-control {
+        position: fixed;
+        bottom: 4px;
+        right: 4px;
+        z-index: 20;
+        background: white/30;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      }
+      .music-control:hover {
+        background: white/50;
+        transform: scale(1.1);
+      }
     }
   </style>
 </head>
@@ -162,6 +184,19 @@
   
   <!-- 半透明遮罩 -->
   <div class="fixed inset-0 z-10 bg-black/20"></div>
+  
+  <!-- 背景音乐元素（隐藏状态） -->
+  <audio id="fail-audio" loop preload="none">
+    <source src="fail.mp3" type="audio/mpeg">
+  </audio>
+  <audio id="succeed-audio" loop preload="none">
+    <source src="succeed.mp3" type="audio/mpeg">
+  </audio>
+  
+  <!-- 音乐控制按钮 -->
+  <div class="music-control" id="music-control">
+    <i class="fa fa-volume-up text-white text-xl text-shadow"></i>
+  </div>
   
   <!-- 主内容 -->
   <div class="relative z-20 w-full max-w-md flex flex-col items-center">
@@ -211,35 +246,25 @@
   </div>
   
   <script>
-    // 适配GitHub Pages的路径（仅保留文件名，与HTML文件同目录）
+    // 路径配置（所有文件需在同一目录）
     const customSettings = {
-      backgroundImage: "back.jpg",  // 背景图（与HTML同目录）
+      backgroundImage: "back.jpg",
       emojiImages: [
-        "1.gif",  // 表情包1
-        "2.gif",  // 表情包2
-        "3.gif",  // 表情包3
-        "4.gif",  // 表情包4
-        "5.gif",  // 表情包5
-        "6.gif"   // 表情包6
+        "1.gif", "2.gif", "3.gif", "4.gif", "5.gif", "6.gif"
       ]
     };
     
-    // 爱心数量控制变量
-    let heartCount = 15; // 初始爱心数量
-    
+    // 状态管理
     const state = {
       noClickCount: 0,
       swapped: false,
       noTexts: [
-        "不要",
-        "不要",
-        "？你认真的吗",
-        "要不再想想",
-        "不许选这个！",
-        "我会很伤心...",
-        "追不上我吧"
+        "不要", "不要", "？你认真的吗", "要不再想想", 
+        "不许选这个！", "我会很伤心...", "追不上我吧"
       ],
-      emojiImages: customSettings.emojiImages
+      emojiImages: customSettings.emojiImages,
+      isMuted: false, // 音乐是否静音
+      currentAudio: null // 当前播放的音频
     };
     
     // DOM元素
@@ -255,38 +280,104 @@
     const background = document.getElementById('background');
     const emojiUpload = document.getElementById('emoji-upload');
     const body = document.body;
+    const failAudio = document.getElementById('fail-audio');
+    const succeedAudio = document.getElementById('succeed-audio');
+    const musicControl = document.getElementById('music-control');
+    const musicIcon = musicControl.querySelector('i');
     
     // 初始化
     function init() {
+      // 设置背景和初始表情包
       background.style.backgroundImage = `url('${customSettings.backgroundImage}')`;
       emojiDisplay.src = state.emojiImages[0];
       
       // 初始创建爱心
-      createHearts(heartCount);
+      createHearts(15);
       
       // 表情包点击互动
       emojiContainer.addEventListener('click', () => {
         emojiContainer.classList.add('emoji-spin');
-        setTimeout(() => {
-          emojiContainer.classList.remove('emoji-spin');
-        }, 800);
+        setTimeout(() => emojiContainer.classList.remove('emoji-spin'), 800);
       });
       
-      // 定时补充少量爱心，保持初始氛围
+      // 定时补充爱心
       setInterval(() => {
         if (state.noClickCount === 0 && document.querySelectorAll('.heart').length < 5) {
           createHearts(2);
         }
       }, 3000);
+      
+      // 音乐控制
+      musicControl.addEventListener('click', toggleMute);
+      
+      // 首次交互获取音频播放权限
+      document.addEventListener('click', enableAudio, { once: true });
     }
     
-    // 创建爱心粒子效果
+    // 启用音频播放（需用户首次交互触发）
+    function enableAudio() {
+      // 预加载音频（不播放，只为获取权限）
+      failAudio.volume = 0.3;
+      succeedAudio.volume = 0.3;
+      failAudio.load();
+      succeedAudio.load();
+    }
+    
+    // 切换音乐静音状态
+    function toggleMute() {
+      state.isMuted = !state.isMuted;
+      
+      if (state.isMuted) {
+        // 静音
+        if (state.currentAudio) state.currentAudio.muted = true;
+        musicIcon.className = 'fa fa-volume-off text-white text-xl text-shadow';
+      } else {
+        // 取消静音
+        if (state.currentAudio) state.currentAudio.muted = false;
+        musicIcon.className = 'fa fa-volume-up text-white text-xl text-shadow';
+      }
+    }
+    
+    // 播放拒绝音乐
+    function playFailAudio() {
+      // 停止其他音频
+      if (state.currentAudio) state.currentAudio.pause();
+      
+      // 播放失败音乐
+      failAudio.currentTime = 0; // 从头开始
+      failAudio.muted = state.isMuted;
+      failAudio.play();
+      state.currentAudio = failAudio;
+      
+      // 更新图标
+      musicIcon.className = state.isMuted 
+        ? 'fa fa-volume-off text-white text-xl text-shadow'
+        : 'fa fa-volume-up text-white text-xl text-shadow';
+    }
+    
+    // 播放成功音乐
+    function playSucceedAudio() {
+      // 停止其他音频
+      if (state.currentAudio) state.currentAudio.pause();
+      
+      // 播放成功音乐
+      succeedAudio.currentTime = 0; // 从头开始
+      succeedAudio.muted = state.isMuted;
+      succeedAudio.play();
+      state.currentAudio = succeedAudio;
+      
+      // 更新图标
+      musicIcon.className = state.isMuted 
+        ? 'fa fa-volume-off text-white text-xl text-shadow'
+        : 'fa fa-volume-up text-white text-xl text-shadow';
+    }
+    
+    // 创建爱心粒子
     function createHearts(count = 5) {
       for (let i = 0; i < count; i++) {
         const heart = document.createElement('div');
         heart.classList.add('heart');
         
-        // 随机位置和大小
         const size = Math.random() * 15 + 10;
         const left = Math.random() * 100;
         const delay = Math.random() * 2;
@@ -295,21 +386,15 @@
         heart.style.width = `${size}px`;
         heart.style.height = `${size}px`;
         heart.style.animationDelay = `${delay}s`;
-        
-        // 随点击"不要"次数增加，爱心逐渐变淡
-        const opacity = Math.max(0.3, 1 - state.noClickCount * 0.15);
-        heart.style.opacity = opacity;
+        heart.style.opacity = Math.max(0.3, 1 - state.noClickCount * 0.15);
         
         body.appendChild(heart);
         
-        // 动画结束后移除元素
-        setTimeout(() => {
-          heart.remove();
-        }, 3000 + delay * 1000);
+        setTimeout(() => heart.remove(), 3000 + delay * 1000);
       }
     }
     
-    // 交换按钮位置
+    // 交换按钮
     function swapButtons() {
       state.swapped = !state.swapped;
       btnContainer.classList.add('shuffle-animation');
@@ -322,66 +407,57 @@
         btnContainer.appendChild(btnYes);
       }
       
-      setTimeout(() => {
-        btnContainer.classList.remove('shuffle-animation');
-      }, 500);
+      setTimeout(() => btnContainer.classList.remove('shuffle-animation'), 500);
     }
     
-    // 按钮大小变量
-    let yesScale = 1;
-    let noScale = 1;
-    
-    // "可以"按钮点击事件（大量爱心）
+    // "可以"按钮点击（成功场景）
     btnYes.addEventListener('click', () => {
-      createHearts(30); // 点击"可以"出现大量爱心
+      createHearts(30);
       successModal.classList.remove('hidden');
+      playSucceedAudio(); // 播放成功音乐
     });
     
-    // "不要"按钮点击事件（爱心减少）
+    // "不要"按钮点击（失败场景）
     btnNo.addEventListener('click', (e) => {
       e.stopPropagation();
       state.noClickCount++;
       
-      // 表情包旋转动画
+      // 表情包动画
       emojiContainer.classList.add('emoji-spin');
-      setTimeout(() => {
-        emojiContainer.classList.remove('emoji-spin');
-      }, 800);
+      setTimeout(() => emojiContainer.classList.remove('emoji-spin'), 800);
       
-      // 每次点击"不要"，爱心数量减少
-      heartCount = Math.max(0, heartCount - 3);
-      createHearts(Math.max(0, heartCount / 3)); // 生成减少后的爱心数量
+      // 播放失败音乐（首次点击"不要"时开始）
+      if (state.noClickCount === 1) {
+        playFailAudio();
+      }
       
-      // 第一次点击：交换位置
+      // 按钮交换逻辑
       if (state.noClickCount === 1) {
         swapButtons();
         return;
       }
       
-      // 第二次点击：交换回来
       if (state.noClickCount === 2) {
         swapButtons();
         btnNo.textContent = state.noTexts[1];
         return;
       }
       
-      // 第三次及以后点击
+      // 按钮缩放和文本变化
       if (state.noClickCount <= state.noTexts.length) {
         btnNo.textContent = state.noTexts[state.noClickCount - 1];
         
-        // 按钮缩放
-        noScale *= 0.85;
-        yesScale *= 1.15;
+        const noScale = 0.85 **(state.noClickCount - 1);
+        const yesScale = 1.15** (state.noClickCount - 1);
         
         btnNo.style.transform = `scale(${noScale})`;
         btnYes.style.transform = `scale(${yesScale})`;
         
-        // 更新表情包
         const emojiIndex = Math.min(state.noClickCount - 2, state.emojiImages.length - 1);
         emojiDisplay.src = state.emojiImages[emojiIndex];
       }
       
-      // 最后阶段：按钮乱窜
+      // 按钮躲避逻辑
       if (state.noClickCount >= state.noTexts.length) {
         btnNo.textContent = state.noTexts[state.noTexts.length - 1];
         btnNo.classList.add('dodge-animation');
@@ -411,47 +487,37 @@
       successModal.classList.add('hidden');
     });
     
-    // 背景图片上传
-    bgUploadBtn.addEventListener('click', () => {
-      bgUpload.click();
-    });
-    
+    // 背景和表情包上传逻辑
+    bgUploadBtn.addEventListener('click', () => bgUpload.click());
     bgUpload.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
+      if (e.target.files[0]) {
         const reader = new FileReader();
         reader.onload = (event) => {
           background.style.backgroundImage = `url('${event.target.result}')`;
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(e.target.files[0]);
       }
     });
     
-    // 表情包上传
     emojiUpload.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
+      if (e.target.files[0]) {
         const reader = new FileReader();
         reader.onload = (event) => {
-          const currentIndex = Math.max(0, state.noClickCount - 2);
-          state.emojiImages[currentIndex] = event.target.result;
+          const index = Math.max(0, state.noClickCount - 2);
+          state.emojiImages[index] = event.target.result;
           emojiDisplay.src = event.target.result;
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(e.target.files[0]);
       }
     });
     
-    // 点击弹窗背景不关闭
+    // 阻止弹窗背景点击关闭
     successModal.addEventListener('click', (e) => {
-      if (e.target === successModal) {
-        e.stopPropagation();
-      }
+      if (e.target === successModal) e.stopPropagation();
     });
-    
-    // 防止页面滚动
-    document.body.style.overflow = 'hidden';
     
     // 初始化页面
+    document.body.style.overflow = 'hidden';
     init();
   </script>
 </body>
